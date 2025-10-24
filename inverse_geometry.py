@@ -15,6 +15,58 @@ from config import CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET
 
 from tools import setcubeplacement
 
+# def computeqgrasppose(robot, qcurrent, cube, cubetarget, viz=None):
+#     '''Return a collision free configuration grasping a cube at a specific location and a success flag'''
+#     setcubeplacement(robot, cube, cubetarget)
+#     #TODO implement
+#     oMleftgoal = getcubeplacement(cube, LEFT_HOOK)
+#     oMrightgoal = getcubeplacement(cube, RIGHT_HOOK)
+    
+#     IDX_RIGHT = robot.model.getFrameId(RIGHT_HAND)
+#     IDX_LEFT = robot.model.getFrameId(LEFT_HAND)
+    
+#     pin.framesForwardKinematics(robot.model, robot.data, qcurrent)
+#     pin.computeJointJacobians(robot.model, robot.data, qcurrent)
+    
+#     oMleft = robot.data.oMf[IDX_LEFT]
+#     oMright = robot.data.oMf[IDX_RIGHT]
+
+#     error_left = pin.log(oMleft.inverse() * oMleftgoal).vector
+#     error_right = pin.log(oMright.inverse() * oMrightgoal).vector
+    
+#     DT = 1e-2
+
+    
+#     while norm(error_left) > EPSILON or norm(error_right) > EPSILON or collision(robot, qcurrent) == True:
+#         #compute current end-effector placements
+#         pin.framesForwardKinematics(robot.model, robot.data, qcurrent)
+#         pin.computeJointJacobians(robot.model, robot.data, qcurrent)
+
+#         oMleft = robot.data.oMf[IDX_LEFT]
+#         oMright = robot.data.oMf[IDX_RIGHT]
+
+#         error_left = pin.log(oMleft.inverse() * oMleftgoal).vector
+#         error_right = pin.log(oMright.inverse() * oMrightgoal).vector
+
+#         right_Jright = pin.computeFrameJacobian(robot.model, robot.data, qcurrent, IDX_RIGHT)
+#         left_Jleft = pin.computeFrameJacobian(robot.model, robot.data, qcurrent, IDX_LEFT)
+        
+#         vq_right = pinv(right_Jright)@error_right
+#         vq_left = pinv(left_Jleft)@error_left
+
+#         vq = vq_right + vq_left   ####### I think the error is here - how do we update each arm separately?
+
+#         qcurrent = pin.integrate(robot.model, qcurrent, DT*vq)
+        
+#         qcurrent = projecttojointlimits(robot, qcurrent)
+        
+#     if collision(robot, qcurrent):
+#         return robot.q0, False
+#     #print(CUBE_PLACEMENT_TARGET)
+#     # print ("TODO: implement me")
+#     return robot.q0, True
+
+
 def computeqgrasppose(robot, qcurrent, cube, cubetarget, viz=None):
     '''Return a collision free configuration grasping a cube at a specific location and a success flag'''
     setcubeplacement(robot, cube, cubetarget)
@@ -39,14 +91,6 @@ def computeqgrasppose(robot, qcurrent, cube, cubetarget, viz=None):
     
     while norm(error_left) > EPSILON or norm(error_right) > EPSILON or collision(robot, qcurrent) == True:
         #compute current end-effector placements
-        pin.framesForwardKinematics(robot.model, robot.data, qcurrent)
-        pin.computeJointJacobians(robot.model, robot.data, qcurrent)
-
-        oMleft = robot.data.oMf[IDX_LEFT]
-        oMright = robot.data.oMf[IDX_RIGHT]
-
-        error_left = pin.log(oMleft.inverse() * oMleftgoal).vector
-        error_right = pin.log(oMright.inverse() * oMrightgoal).vector
 
         right_Jright = pin.computeFrameJacobian(robot.model, robot.data, qcurrent, IDX_RIGHT)
         left_Jleft = pin.computeFrameJacobian(robot.model, robot.data, qcurrent, IDX_LEFT)
@@ -59,6 +103,15 @@ def computeqgrasppose(robot, qcurrent, cube, cubetarget, viz=None):
         qcurrent = pin.integrate(robot.model, qcurrent, DT*vq)
         
         qcurrent = projecttojointlimits(robot, qcurrent)
+        
+        pin.framesForwardKinematics(robot.model, robot.data, qcurrent)
+        pin.computeJointJacobians(robot.model, robot.data, qcurrent)
+
+        oMleft = robot.data.oMf[IDX_LEFT]
+        oMright = robot.data.oMf[IDX_RIGHT]
+
+        error_left = pin.log(oMleft.inverse() * oMleftgoal).vector
+        error_right = pin.log(oMright.inverse() * oMrightgoal).vector
         
     if collision(robot, qcurrent):
         return robot.q0, False
