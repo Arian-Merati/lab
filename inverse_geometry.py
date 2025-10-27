@@ -15,6 +15,8 @@ from config import CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET
 
 from tools import setcubeplacement
 
+MAX_ITERATIONS = 1000
+
 # def computeqgrasppose(robot, qcurrent, cube, cubetarget, viz=None):
 #     '''Return a collision free configuration grasping a cube at a specific location and a success flag'''
 #     setcubeplacement(robot, cube, cubetarget)
@@ -76,47 +78,58 @@ def computeqgrasppose(robot, qcurrent, cube, cubetarget, viz=None):
     
     IDX_RIGHT = robot.model.getFrameId(RIGHT_HAND)
     IDX_LEFT = robot.model.getFrameId(LEFT_HAND)
-    
-    pin.framesForwardKinematics(robot.model, robot.data, qcurrent)
-    pin.computeJointJacobians(robot.model, robot.data, qcurrent)
-    
-    oMleft = robot.data.oMf[IDX_LEFT]
-    oMright = robot.data.oMf[IDX_RIGHT]
 
-    error_left = pin.log(oMleft.inverse() * oMleftgoal).vector
-    error_right = pin.log(oMright.inverse() * oMrightgoal).vector
     
     DT = 1e-2
+    iteration = 0
 
-    
-    while norm(error_left) > EPSILON or norm(error_right) > EPSILON or collision(robot, qcurrent) == True:
+    for i in range(MAX_ITERATIONS):
         #compute current end-effector placements
-
-        right_Jright = pin.computeFrameJacobian(robot.model, robot.data, qcurrent, IDX_RIGHT)
-        left_Jleft = pin.computeFrameJacobian(robot.model, robot.data, qcurrent, IDX_LEFT)
-        
-        vq_right = pinv(right_Jright)@error_right
-        vq_left = pinv(left_Jleft)@error_left
-
-        vq = vq_right + vq_left   ####### I think the error is here - how do we update each arm separately?
-
-        qcurrent = pin.integrate(robot.model, qcurrent, DT*vq)
-        
-        qcurrent = projecttojointlimits(robot, qcurrent)
+        iteration += 1
         
         pin.framesForwardKinematics(robot.model, robot.data, qcurrent)
         pin.computeJointJacobians(robot.model, robot.data, qcurrent)
-
+        
         oMleft = robot.data.oMf[IDX_LEFT]
         oMright = robot.data.oMf[IDX_RIGHT]
 
-        error_left = pin.log(oMleft.inverse() * oMleftgoal).vector
-        error_right = pin.log(oMright.inverse() * oMrightgoal).vector
+        error_left = -pin.log(oMleft.inverse() * oMleftgoal).vector
+        error_right = -pin.log(oMright.inverse() * oMrightgoal).vector
+
+        o_Jright = pin.computeFrameJacobian(robot.model, robot.data, qcurrent, IDX_RIGHT) ## In terms of the world instead
+        o_Jleft = pin.computeFrameJacobian(robot.model, robot.data, qcurrent, IDX_LEFT) ## In terms of the world instead
         
-    if collision(robot, qcurrent):
+        vq = -pinv(o_Jright) @ error_right
+        P = np.eye(robot.nv)-pinv(o_Jright) @ o_Jright
+        vq += pinv(o_Jleft @ P) @ ( -error_left - o_Jleft @ vq)
+        
+
+        # vq_right = pinv(o_Jright)@error_right
+        # vq_left = pinv(o_Jleft)@error_left
+        # print(vq_right)
+
+        # vq = vq_right + vq_left   ####### I think the error is here - how do we update each arm separately?
+
+        qcurrent = pin.integrate(robot.model, qcurrent, DT*vq)
+        
+        #qcurrent = projecttojointlimits(robot, qcurrent)
+        viz.display(qcurrent)
+        
+        # pin.framesForwardKinematics(robot.model, robot.data, qcurrent)
+        # pin.computeJointJacobians(robot.model, robot.data, qcurrent)
+
+        # oMleft = robot.data.oMf[IDX_LEFT]
+        # oMright = robot.data.oMf[IDX_RIGHT]
+
+        # error_left = pin.log(oMleft.inverse() * oMleftgoal).vector
+        # error_right = pin.log(oMright.inverse() * oMrightgoal).vector
+        
+    if collision(robot, qcurrent) or norm(error_left) > EPSILON or norm(error_right) > EPSILON:
+        print("false")
         return robot.q0, False
     #print(CUBE_PLACEMENT_TARGET)
     # print ("TODO: implement me")
+    print("true")
     return robot.q0, True
 
 def cost(q):
