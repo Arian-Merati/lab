@@ -9,7 +9,7 @@ Created on Wed Sep  6 15:32:51 2023
 import pinocchio as pin 
 import numpy as np
 from numpy.linalg import pinv,inv,norm,svd,eig
-from tools import collision, getcubeplacement, setcubeplacement, projecttojointlimits
+from tools import collision, getcubeplacement, setcubeplacement, projecttojointlimits, jointlimitsviolated
 from config import LEFT_HOOK, RIGHT_HOOK, LEFT_HAND, RIGHT_HAND, EPSILON
 from config import CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET
 
@@ -61,7 +61,7 @@ def computeqgrasppose(robot, qcurrent, cube, cubetarget, viz=None):
         qcurrent = pin.integrate(robot.model, qcurrent, DT*vq)
         
         #qcurrent = projecttojointlimits(robot, qcurrent)
-        viz.display(qcurrent)
+        #viz.display(qcurrent)
         
         # pin.framesForwardKinematics(robot.model, robot.data, qcurrent)
         # pin.computeJointJacobians(robot.model, robot.data, qcurrent)
@@ -72,13 +72,12 @@ def computeqgrasppose(robot, qcurrent, cube, cubetarget, viz=None):
         # error_left = pin.log(oMleft.inverse() * oMleftgoal).vector
         # error_right = pin.log(oMright.inverse() * oMrightgoal).vector
         
-    if collision(robot, qcurrent) or norm(error_left) > EPSILON or norm(error_right) > EPSILON:
-        print("false")
-        return qcurrent, False
-    #print(CUBE_PLACEMENT_TARGET)
-    # print ("TODO: implement me")
-    print("true")
-    return qcurrent, True
+        if (norm(error_left) < EPSILON and norm(error_right) < EPSILON):
+            if not collision(robot, qcurrent) and not jointlimitsviolated(robot, qcurrent):
+                return qcurrent, True
+            else:
+                return qcurrent, False
+    return qcurrent, False
 
 def cost(q):
     M = robot.placement(q, 6)

@@ -26,29 +26,33 @@ from inverse_geometry import computeqgrasppose
     #         if (not collision(robot, q)) and (not jointlimitsviolated(robot, q)):
     #             return q
         
-def RAND_CONF(cubeplacementq0):
+def RAND_CONF(G):
     '''
     Return a random configuration for the cube
     '''
-    base_placement = cubeplacementq0.translation
-    sample_range_lower = np.array([0.1, 0.4, 0]) 
-    sample_range_upper = np.array([0.1, 0.5, 0.1])
+    nearest_to_target_idx = NEAREST_VERTEX(G, CUBE_PLACEMENT_TARGET.translation)
+    base_placement = G[nearest_to_target_idx][1]
+    sample_range_lower = np.array([0.05, 0.05, 0]) 
+    sample_range_upper = np.array([0.15, 0.3, 0.3])
     lower_bound = base_placement - sample_range_lower
     upper_bound = base_placement + sample_range_upper
 
     random_position = np.random.uniform(lower_bound, upper_bound)
-    cube_matrix = pin.SE3(cubeplacementq0.rotation, random_position)
+    cube_matrix = pin.SE3(CUBE_PLACEMENT.rotation, random_position)
     setcubeplacement(robot, cube, cube_matrix)
     q, successFlag = computeqgrasppose(robot, robot.q0, cube, cube_matrix, viz)
     print("RAND CONF SUCCESS FLAG:", successFlag)
     if successFlag:
         return q, cube_matrix
     else:
-        return RAND_CONF()
+        return RAND_CONF(G)
     
 
 def distance(q1,q2):    
     '''Return the euclidian distance between two configurations'''
+    print("DISTANCE CALLED")
+    print("Q1:", q1)
+    print("Q2:", q2)
     return np.linalg.norm(q2-q1)
         
 def NEAREST_VERTEX(G,cube_rand):
@@ -68,7 +72,6 @@ def lerp(q0,q1,t):
 def NEW_CONF(cube_near,cube_rand,discretisationsteps, delta_q = None):
     '''Return the closest configuration q_new such that the path q_near => q_new is the longest
     along the linear interpolation (q_near,q_rand) that is collision free and of length <  delta_q'''
-    cube_list = []
     cube_end = cube_rand.copy()
     dist = distance(cube_near, cube_rand)
     if delta_q is not None and dist > delta_q:
@@ -76,14 +79,14 @@ def NEW_CONF(cube_near,cube_rand,discretisationsteps, delta_q = None):
         cube_end = lerp(cube_near,cube_rand,delta_q/dist)
         # now dist == delta_q
     dt = 1 / discretisationsteps
+    g_grasp = robot.q0.copy()
     for i in range(1,discretisationsteps):
         cube_interp = lerp(cube_near,cube_end,dt*i)
-        cube_placement = pin.SE3(CUBE_PLACEMENT.rotation, cube_interp)  # Assuming last three elements are cube position
-        q_grasp, successFlag = computeqgrasppose(robot, robot.q0, cube, cube_placement, viz)
+        cube_placement = pin.SE3(CUBE_PLACEMENT.rotation, cube_interp)
+        q_grasp, successFlag = computeqgrasppose(robot, g_grasp, cube, cube_placement, viz)
         if not successFlag:
             return lerp(cube_near,cube_end,dt*(i-1))
-        cube_list.append(cube_placement)
-    return cube_list[-1]
+    return cube_end
 
 def ADD_EDGE_AND_VERTEX(G,parent,cubeplacement):
     G += [(parent,cubeplacement)]
@@ -92,31 +95,55 @@ def VALID_EDGE(q_new,q_goal,discretisationsteps):
     return np.linalg.norm(q_goal -NEW_CONF(q_new, q_goal,discretisationsteps)) < 1e-3
 
 def computepath(qinit, qgoal, cubeplacementq0, cubeplacementqgoal):
-    discretisationsteps_newconf = 200 #To tweak later on
-    discretisationsteps_validedge = 200 #To tweak later on
+    discretisationsteps_newconf = 5 #To tweak later on
+    discretisationsteps_validedge = 5 #To tweak later on
     k = 1000  #To tweak later on
     delta_q = 0.5 #To tweak later on
     cube_goal = cubeplacementqgoal.translation
 
     G = [(None, cubeplacementq0.translation)] 
     for _ in range(k):
-        q_rand, sampled_cube = RAND_CONF(cubeplacementq0)   
+        q_rand, sampled_cube = RAND_CONF(G)   
         sampled_cube_position = sampled_cube.translation
         cube_near_index = NEAREST_VERTEX(G,sampled_cube_position)
         cube_near = G[cube_near_index][1]        
-        cube_new = NEW_CONF(cube_near, sampled_cube_position, discretisationsteps_newconf, delta_q = None)    
+        cube_new = NEW_CONF(cube_near, sampled_cube_position, discretisationsteps_newconf, delta_q = delta_q)    
         ADD_EDGE_AND_VERTEX(G,cube_near_index,cube_new)
         if VALID_EDGE(cube_new,cube_goal,discretisationsteps_validedge):
             print ("Path found!")
             ADD_EDGE_AND_VERTEX(G,len(G)-1,cube_goal)
-            return G, True
+            path = getpath(G)
+            return path, True
         
     print("path not found")
-    return G, False
+    return getpath(G), False
 
+# def constructpath(G):
+#     path = []
+#     q_grasp = robot.q0.copy()
+#     for i in range (len(G)):
+#         cube_matrix = pin.SE3(CUBE_PLACEMENT.rotation, G[i][1])
+#         q_grasp, successFlag = computeqgrasppose(robot, q_grasp, cube, cube_matrix, viz)
+#         path += [q_grasp]
+#     return path
+
+def getpath(G):
+    cube_positions = []
+    path = []
+    node = G[-1]
+    while node[0] is not None:
+        cube_positions = [node[1]] + cube_positions
+        node = G[node[0]]
+    cube_positions = [G[0][1]] + cube_positions
+    for position in cube_positions:
+        cube_matrix = pin.SE3(CUBE_PLACEMENT.rotation, position)
+        setcubeplacement(robot, cube, cube_matrix)
+        q_grasp, successFlag = computeqgrasppose(robot, robot.q0, cube, cube_matrix, viz)
+        path.append(q_grasp)
+    return path
+        
 
 def displaypath(robot,path,dt,viz):
-    print("WE GET HERE")
     print(path)
     for q in path:
         viz.display(q)
