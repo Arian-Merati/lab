@@ -42,11 +42,9 @@ def computeqgrasppose(robot, qcurrent, cube, cubetarget, viz=None):
         error_left = -pin.log(oMleft.inverse() * oMleftgoal).vector
         error_right = -pin.log(oMright.inverse() * oMrightgoal).vector
 
-        # CHECK CONVERGENCE EARLY (don't waste 1000 iterations!)
+        # checking early convergence
         if norm(error_left) < EPSILON and norm(error_right) < EPSILON:
-            # Converged! Now check if collision-free
             if not collision(robot, qcurrent) and not jointlimitsviolated(robot, qcurrent):
-                # Success!
                 return qcurrent, True
             else:
                 # Converged but in collision or violates limits
@@ -64,15 +62,10 @@ def computeqgrasppose(robot, qcurrent, cube, cubetarget, viz=None):
         # Integrate
         qcurrent = pin.integrate(robot.model, qcurrent, DT*vq)
 
-        # CRITICAL FIX: Project to joint limits during IK
+        # *Project to joint limits during IK
         qcurrent = projecttojointlimits(robot, qcurrent)
 
-        # Visualize occasionally (not every iteration - too slow!)
-        # Commenting out visualization during path planning for speed
-        # if viz and i % 50 == 0:
-        #     viz.display(qcurrent)
-
-    # Did not converge within MAX_ITERATIONS
+    
     return qcurrent, False
 
 
