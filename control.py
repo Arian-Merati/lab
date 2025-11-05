@@ -7,6 +7,7 @@ Created on Wed Sep  6 15:32:51 2023
 """
 
 import numpy as np
+import pinocchio as pin
 
 from bezier import Bezier
     
@@ -26,11 +27,9 @@ if __name__ == "__main__":
     from tools import setupwithpybullet, setupwithpybulletandmeshcat, rununtil
     from config import DT
 
-    # ========================================================================
-    # VISUALIZATION MODE vs CONTROL MODE
     # Run with: python control.py --visualize (to test trajectory in MeshCat)
     # Run with: python control.py (for PyBullet control simulation)
-    # ========================================================================
+    
     VISUALIZE_ONLY = "--visualize" in sys.argv or "-v" in sys.argv
 
     if VISUALIZE_ONLY:
@@ -72,17 +71,22 @@ if __name__ == "__main__":
     robot_path, pathsuccess = path.computepath(q0,qe,CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET)
     print(f"Path computed: {len(robot_path)} waypoints, success={pathsuccess}")
 
+    # reset cube to initial position after path computation
+    # (path computation changes cube position during sampling)
+    from tools import setcubeplacement
+    setcubeplacement(robot, cube, CUBE_PLACEMENT)
 
     #setting initial configuration
     if not VISUALIZE_ONLY:
         sim.setqsim(q0)
     else:
+        # Update visualization with cube at initial position
         updatevisuals(viz, robot, cube, q0)
         time.sleep(1.0)
 
-    # ========================================================================
+    
     # PART 2 TASK I: Trajectory Generation - Following the Path
-    # ========================================================================
+    
 
     def maketraj(path, T, method='level0_smooth'):
         """
@@ -91,7 +95,6 @@ if __name__ == "__main__":
         Args:
             path: list of configurations from computepath() [q0, q1, ..., qn]
             T: total time duration (seconds)
-            method: 'level0_simple' or 'level0_smooth' (recommended)
 
         Returns:
             q_of_t: position trajectory function
@@ -102,7 +105,7 @@ if __name__ == "__main__":
         print(f"\nCreating trajectory from {M} waypoints using method: {method}")
 
         if method == 'level0_simple':
-            # Simple version: zero velocities at each waypoint
+            #zero velocities at each waypoint
             n_segments = M - 1
             dt = T / n_segments
             segments = []
@@ -113,12 +116,12 @@ if __name__ == "__main__":
                 t_start = i * dt
                 t_end = (i + 1) * dt
 
-                # Cubic Bezier with zero velocities at endpoints
+                #Cubic Bezier with zero velocities at endpoints
                 control_points = [q_start, q_start, q_end, q_end]
                 bezier = Bezier(control_points, t_min=t_start, t_max=t_end)
                 segments.append(bezier)
 
-            # Create trajectory functions
+            # trajectory functions
             def q_of_t(t):
                 if t <= 0:
                     return path[0].copy()
@@ -140,7 +143,7 @@ if __name__ == "__main__":
                 return segments[segment_idx].derivative(2)(t)
 
         elif method == 'level0_smooth':
-            # Smooth version: continuous velocities at waypoints
+            # better verions - continuous velocities at waypoints
             n_segments = M - 1
             dt = T / n_segments
 
@@ -172,7 +175,7 @@ if __name__ == "__main__":
                 bezier = Bezier([p0, p1, p2, p3], t_min=t_start, t_max=t_end)
                 segments.append(bezier)
 
-            # Create trajectory functions
+            # trajectory functions
             def q_of_t(t):
                 if t <= 0:
                     return path[0].copy()
@@ -196,7 +199,7 @@ if __name__ == "__main__":
         else:
             raise ValueError(f"Unknown method: {method}")
 
-        # Validate trajectory
+        #validating trajectory
         print(f"Trajectory created: T={T:.2f}s")
         print(f"  Start config error: {np.linalg.norm(q_of_t(0.0) - path[0]):.6f}")
         print(f"  End config error: {np.linalg.norm(q_of_t(T) - path[-1]):.6f}")
@@ -206,15 +209,12 @@ if __name__ == "__main__":
         return q_of_t, vq_of_t, vvq_of_t
 
 
-    # Create trajectory from the full path (not just q0 and qe!)
+    # trajectory from full path (not just q0 and qe)
     total_time = 10.0  # seconds - adjust as needed
     trajs = maketraj(robot_path, total_time, method='level0_smooth')
     q_traj, v_traj, a_traj = trajs
 
     if VISUALIZE_ONLY:
-        # ====================================================================
-        # VISUALIZATION MODE: Show trajectory in MeshCat
-        # ====================================================================
         print("\n" + "="*70)
         print("Visualizing trajectory in MeshCat...")
         print("Open browser to: http://127.0.0.1:7000/static/")
@@ -231,6 +231,15 @@ if __name__ == "__main__":
         for i in range(n_frames + 1):
             t = (i / n_frames) * total_time
             q = q_traj(t)
+
+            # Interpolate cube position from start to goal
+            # (cube moves with robot as it's being grasped)
+            alpha = i / n_frames  # interpolation parameter [0, 1]
+            cube_position = (1 - alpha) * CUBE_PLACEMENT.translation + alpha * CUBE_PLACEMENT_TARGET.translation
+            cube_placement_current = pin.SE3(CUBE_PLACEMENT.rotation, cube_position)
+            setcubeplacement(robot, cube, cube_placement_current)
+
+            # Update visualization
             updatevisuals(viz, robot, cube, q)
 
             if i % 30 == 0:
@@ -239,13 +248,11 @@ if __name__ == "__main__":
 
             time.sleep(dt_display)
 
-        print("\n✓ Trajectory visualization complete!")
+        print("\nTrajectory visualization complete!")
         print("If trajectory looks good, run without --visualize for control simulation")
 
     else:
-        # ====================================================================
-        # CONTROL MODE: Run dynamics simulation
-        # ====================================================================
+        # dynamics simulation
         print("\n" + "="*70)
         print("Running control simulation...")
         print("This will take a while (real-time simulation)...")
@@ -261,4 +268,4 @@ if __name__ == "__main__":
             if int(tcur) > int(tcur - DT):
                 print(f"Simulation time: {tcur:.1f}s / {total_time:.1f}s")
 
-        print("\n✓ Simulation complete!")
+        print("\n Simulation complete!")
