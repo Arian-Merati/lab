@@ -10,11 +10,16 @@ import pinocchio as pin
 import numpy as np
 from numpy.linalg import pinv
 
-from config import LEFT_HAND, RIGHT_HAND
+from config import LEFT_HAND, RIGHT_HAND, CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET
 import time
 from tools import collision, jointlimitsviolated, setcubeplacement
 from inverse_geometry import computeqgrasppose
-    
+
+# Global variables for robot, cube, and viz (set by calling code)
+robot = None
+cube = None
+viz = None
+
 #returns a collision free path from qinit to qgoal under grasping constraints
 #the path is expressed as a list of configurations
     # def RAND_CONF_CUBE(cube):

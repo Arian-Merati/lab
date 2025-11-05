@@ -53,19 +53,24 @@ if __name__ == "__main__":
         viz = None
     
     
-    from config import CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET    
+    from config import CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET
     from inverse_geometry import computeqgrasppose
-    from path import computepath
-    
-    q0,successinit = computeqgrasppose(robot, robot.q0, cube, CUBE_PLACEMENT, None)
-    qe,successend = computeqgrasppose(robot, robot.q0, cube, CUBE_PLACEMENT_TARGET,  None)
+    import path
+
+    # Set global variables in path module (needed for computepath)
+    path.robot = robot
+    path.cube = cube
+    path.viz = viz
+
+    q0,successinit = computeqgrasppose(robot, robot.q0, cube, CUBE_PLACEMENT, viz)
+    qe,successend = computeqgrasppose(robot, robot.q0, cube, CUBE_PLACEMENT_TARGET,  viz)
 
     if not (successinit and successend):
         print("ERROR: Could not compute valid grasping configurations!")
         exit(1)
 
-    path, pathsuccess = computepath(q0,qe,CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET)
-    print(f"Path computed: {len(path)} waypoints, success={pathsuccess}")
+    robot_path, pathsuccess = path.computepath(q0,qe,CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET)
+    print(f"Path computed: {len(robot_path)} waypoints, success={pathsuccess}")
 
 
     #setting initial configuration
@@ -203,7 +208,7 @@ if __name__ == "__main__":
 
     # Create trajectory from the full path (not just q0 and qe!)
     total_time = 10.0  # seconds - adjust as needed
-    trajs = maketraj(path, total_time, method='level0_smooth')
+    trajs = maketraj(robot_path, total_time, method='level0_smooth')
     q_traj, v_traj, a_traj = trajs
 
     if VISUALIZE_ONLY:
