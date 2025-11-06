@@ -187,13 +187,14 @@ def getpath(G):
         cube_matrix = pin.SE3(CUBE_PLACEMENT.rotation, position)
         setcubeplacement(robot, cube, cube_matrix)
         q_grasp, successFlag = computeqgrasppose(robot, robot.q0, cube, cube_matrix, viz)
-        path.append(q_grasp)
+        # Return both configuration and cube placement as a tuple
+        path.append((q_grasp, cube_matrix))
     return path
         
 
 def displaypath(robot,path,dt,viz):
     print(path)
-    for q in path:
+    for q, cube_placement in path:
         viz.display(q)
         time.sleep(dt)
 
