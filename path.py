@@ -14,6 +14,10 @@ from config import LEFT_HAND, RIGHT_HAND
 import time
 from tools import collision, jointlimitsviolated, setcubeplacement
 from inverse_geometry import computeqgrasppose
+from config import CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET # Added import statement
+from tools import setupwithmeshcat
+from inverse_geometry import computeqgrasppose
+
     
 #returns a collision free path from qinit to qgoal under grasping constraints
 #the path is expressed as a list of configurations
@@ -26,7 +30,7 @@ from inverse_geometry import computeqgrasppose
     #         if (not collision(robot, q)) and (not jointlimitsviolated(robot, q)):
     #             return q
         
-def RAND_CONF(G):
+def RAND_CONF(robot, cube, viz, G):
     '''
     Return a random configuration for the cube
     '''
@@ -45,7 +49,7 @@ def RAND_CONF(G):
     if successFlag:
         return q, cube_matrix
     else:
-        return RAND_CONF(G)
+        return RAND_CONF(robot, cube, viz, G)
     
 
 def distance(q1,q2):    
@@ -69,7 +73,7 @@ def NEAREST_VERTEX(G,cube_rand):
 def lerp(q0,q1,t):    
     return q0 * (1 - t) + q1 * t
 
-def NEW_CONF(cube_near,cube_rand,discretisationsteps, delta_q = None):
+def NEW_CONF(robot, cube, viz, cube_near,cube_rand,discretisationsteps, delta_q = None):
     '''Return the closest configuration q_new such that the path q_near => q_new is the longest
     along the linear interpolation (q_near,q_rand) that is collision free and of length <  delta_q'''
     cube_end = cube_rand.copy()
@@ -91,32 +95,33 @@ def NEW_CONF(cube_near,cube_rand,discretisationsteps, delta_q = None):
 def ADD_EDGE_AND_VERTEX(G,parent,cubeplacement):
     G += [(parent,cubeplacement)]
 
-def VALID_EDGE(q_new,q_goal,discretisationsteps):
-    return np.linalg.norm(q_goal -NEW_CONF(q_new, q_goal,discretisationsteps)) < 1e-3
+def VALID_EDGE(robot, cube, viz,q_new, q_goal, discretisationsteps):
+    return np.linalg.norm(q_goal -NEW_CONF(robot, cube, viz, q_new, q_goal,discretisationsteps)) < 1e-3
 
 def computepath(qinit, qgoal, cubeplacementq0, cubeplacementqgoal):
-    discretisationsteps_newconf = 5 #To tweak later on
-    discretisationsteps_validedge = 5 #To tweak later on
+    robot, cube, viz = setupwithmeshcat() # Added this line might change when debug
+    discretisationsteps_newconf = 10 #To tweak later on
+    discretisationsteps_validedge = 10 #To tweak later on
     k = 1000  #To tweak later on
-    delta_q = 0.5 #To tweak later on
+    delta_q = 0.05 #To tweak later on
     cube_goal = cubeplacementqgoal.translation
 
     G = [(None, cubeplacementq0.translation)] 
     for _ in range(k):
-        q_rand, sampled_cube = RAND_CONF(G)   
+        q_rand, sampled_cube = RAND_CONF(robot, cube, viz, G)   
         sampled_cube_position = sampled_cube.translation
         cube_near_index = NEAREST_VERTEX(G,sampled_cube_position)
         cube_near = G[cube_near_index][1]        
-        cube_new = NEW_CONF(cube_near, sampled_cube_position, discretisationsteps_newconf, delta_q = delta_q)    
+        cube_new = NEW_CONF(robot, cube, viz, cube_near, sampled_cube_position, discretisationsteps_newconf, delta_q = delta_q)    
         ADD_EDGE_AND_VERTEX(G,cube_near_index,cube_new)
-        if VALID_EDGE(cube_new,cube_goal,discretisationsteps_validedge):
+        if VALID_EDGE(robot, cube, viz, cube_new,cube_goal,discretisationsteps_validedge):
             print ("Path found!")
             ADD_EDGE_AND_VERTEX(G,len(G)-1,cube_goal)
-            path = getpath(G)
+            path = getpath(robot, cube, viz, G)
             return path, True
         
     print("path not found")
-    return getpath(G), False
+    return getpath(robot, cube, viz, G), False
 
 # def constructpath(G):
 #     path = []
@@ -127,7 +132,7 @@ def computepath(qinit, qgoal, cubeplacementq0, cubeplacementqgoal):
 #         path += [q_grasp]
 #     return path
 
-def getpath(G):
+def getpath(robot, cube, viz, G):
     cube_positions = []
     path = []
     node = G[-1]
@@ -144,7 +149,6 @@ def getpath(G):
         
 
 def displaypath(robot,path,dt,viz):
-    print(path)
     for q in path:
         viz.display(q)
         time.sleep(dt)

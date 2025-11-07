@@ -33,7 +33,6 @@ def computeqgrasppose(robot, qcurrent, cube, cubetarget, viz=None):
 
     for i in range(MAX_ITERATIONS):
         #compute current end-effector placements
-        iteration += 1
         
         pin.framesForwardKinematics(robot.model, robot.data, qcurrent)
         pin.computeJointJacobians(robot.model, robot.data, qcurrent)
