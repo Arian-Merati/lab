@@ -39,8 +39,8 @@ def RAND_CONF(robot, cube, viz, G):
     # sample_range_lower = np.array([0.05, 0.05, 0]) 
     # sample_range_upper = np.array([0.15, 0.3, 0.3])
 
-    sample_range_lower = np.array([0.1, 0.3, 0.05]) 
-    sample_range_upper = np.array([0.15, 0.3, 0.3])
+    sample_range_lower = np.array([0.12, 0.3, 0.05]) 
+    sample_range_upper = np.array([0.12, 0.3, 0.3])
     lower_bound = base_placement - sample_range_lower
     upper_bound = base_placement + sample_range_upper
 
@@ -175,7 +175,8 @@ if __name__ == "__main__":
     path, success = computepath(q0,qe,CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET)
     
     displaypath(robot,path,dt=0.5,viz=viz) #you ll probably want to lower dt
-   
+
+
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # """
@@ -204,14 +205,14 @@ if __name__ == "__main__":
 #     '''
 #     Return a random configuration, not is collision
 #     '''
-#     GOAL_BIAS = 0.5  # probability to sample the goal directly
+#     GOAL_BIAS = 0.0  # probability to sample the goal directly
 #     if np.random.rand() < GOAL_BIAS:
 #         cube_translation = cube_goal.translation
 #     else:
 #         cube_translation = cube_placement.translation
 
-#     min_ranges = np.array([0.1,0.1,0])  # define the range for x, y, z around the cube
-#     max_ranges = np.array([0.15, 0.3, 0.3])  # define the range for x, y, z around the cube
+#     min_ranges = np.array([0.1,0.35,0.05])  # define the range for x, y, z around the cube
+#     max_ranges = np.array([0.1,0.35,0.3])  # define the range for x, y, z around the cube
 #     min_vals =  cube_translation - min_ranges 
 #     max_vals =  cube_translation + max_ranges
 
@@ -339,3 +340,4 @@ if __name__ == "__main__":
 #         path, success = computepath(q0,qe,CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET)
 #         displaypath(robot,path,dt=0.5,viz=viz) #you ll probably want to lower dt
     
+   
