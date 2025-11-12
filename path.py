@@ -43,7 +43,7 @@ def RAND_CONF(robot, cube, viz, G):
 
     random_position = np.random.uniform(lower_bound, upper_bound)
     cube_matrix = pin.SE3(CUBE_PLACEMENT.rotation, random_position)
-    setcubeplacement(robot, cube, cube_matrix)
+   # setcubeplacement(robot, cube, cube_matrix)
     q, successFlag = computeqgrasppose(robot, robot.q0, cube, cube_matrix, viz)
     print("RAND CONF SUCCESS FLAG:", successFlag)
     if successFlag:
@@ -54,9 +54,9 @@ def RAND_CONF(robot, cube, viz, G):
 
 def distance(q1,q2):    
     '''Return the euclidian distance between two configurations'''
-    print("DISTANCE CALLED")
-    print("Q1:", q1)
-    print("Q2:", q2)
+    # print("DISTANCE CALLED")
+    # print("Q1:", q1)
+    # print("Q2:", q2)
     return np.linalg.norm(q2-q1)
         
 def NEAREST_VERTEX(G,cube_rand):

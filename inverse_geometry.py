@@ -9,7 +9,7 @@ Created on Wed Sep  6 15:32:51 2023
 import pinocchio as pin 
 import numpy as np
 from numpy.linalg import pinv,inv,norm,svd,eig
-from tools import collision, getcubeplacement, setcubeplacement, projecttojointlimits, jointlimitsviolated
+from tools import collision, getcubeplacement, setcubeplacement, projecttojointlimits, jointlimitsviolated, distanceToObstacle
 from config import LEFT_HOOK, RIGHT_HOOK, LEFT_HAND, RIGHT_HAND, EPSILON
 from config import CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET
 
@@ -72,7 +72,7 @@ def computeqgrasppose(robot, qcurrent, cube, cubetarget, viz=None):
         # error_right = pin.log(oMright.inverse() * oMrightgoal).vector
         
         if (norm(error_left) < EPSILON and norm(error_right) < EPSILON):
-            if not collision(robot, qcurrent) and not jointlimitsviolated(robot, qcurrent):
+            if not collision(robot, qcurrent) and not jointlimitsviolated(robot, qcurrent): #and distanceToObstacle(robot, qcurrent) > 0.003:
                 return qcurrent, True
             else:
                 return qcurrent, False
@@ -93,6 +93,7 @@ if __name__ == "__main__":
     qe,successend = computeqgrasppose(robot, q, cube, CUBE_PLACEMENT_TARGET,  viz)
     
     updatevisuals(viz, robot, cube, q0)
+   # updatevisuals(viz, robot, cube, qe)
     
     
     
