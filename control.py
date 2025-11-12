@@ -21,7 +21,7 @@ from config import DT, LEFT_HAND, RIGHT_HAND, LEFT_HOOK, RIGHT_HOOK
 from tools import getcubeplacement, setcubeplacement, collision
     
 # in my solution these gains were good enough for all joints but you might want to tune this.
-Kp = 2000               # proportional gain (P of PD)
+Kp = 4000               # proportional gain (P of PD)
 Kv = 2 * np.sqrt(Kp)     # derivative gain (D of PD)
 Ki = 200                 # integral gain (I of PID)
 # integral_error = None  
@@ -105,7 +105,7 @@ def controllaw(sim, robot, trajs, tcurrent, cube):
     
     data = pin.Data(robot.model)
     #tau_motion = pin.rnea(robot.model, robot.data, q_curr, v_curr, a_total) + robot.data.nle
-    tau_motion = pin.rnea(robot.model, data, q_curr, v_curr, a_total) + 2 * robot.data.nle
+    tau_motion = pin.rnea(robot.model, data, q_curr, v_curr, a_total) + robot.data.nle
 
     # data = pin.Data(robot.model)
     # tau_motion = pin.crba(robot.model, data, q_curr) @ a_total  + robot.data.nle # Store the motion torque
@@ -193,8 +193,6 @@ def controllaw(sim, robot, trajs, tcurrent, cube):
     # 5. SEND FINAL COMBINED TORQUE
     tau_final = tau_motion + tau_force  #+ robot.data.nle
     
-    if collision(robot, q):
-        print("Collision detected at time:", tcurrent)
     sim.step(tau_final)
 
 
