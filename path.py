@@ -75,7 +75,7 @@ def NEAREST_VERTEX(G,cube_rand):
 def lerp(q0,q1,t):    
     return q0 * (1 - t) + q1 * t
 
-def NEW_CONF(robot, cube, viz, cube_near,cube_rand,discretisationsteps, delta_q = 0.05):
+def NEW_CONF(robot, cube, viz, cube_near,cube_rand,discretisationsteps, delta_q = 0.075):
     '''Return the closest configuration q_new such that the path q_near => q_new is the longest
     along the linear interpolation (q_near,q_rand) that is collision free and of length <  delta_q'''
     cube_end = cube_rand.copy()
