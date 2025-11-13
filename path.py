@@ -35,13 +35,14 @@ def RAND_CONF(robot, cube, viz, G):
     Return a random configuration for the cube
     '''
     OBSTACLE_AVOIDANCE_EPSILON = 0.015  # Distance threshold for obstacle avoidance
-    nearest_to_target_idx = NEAREST_VERTEX(G, CUBE_PLACEMENT_TARGET.translation)
-    base_placement = G[nearest_to_target_idx][1]
+    # nearest_to_target_idx = NEAREST_VERTEX(G, CUBE_PLACEMENT_TARGET.translation)
+    # base_placement = G[nearest_to_target_idx][1]
+    base_placement = (CUBE_PLACEMENT.translation + CUBE_PLACEMENT_TARGET.translation) / 2
     # sample_range_lower = np.array([0.05, 0.05, 0]) 
     # sample_range_upper = np.array([0.15, 0.3, 0.3])
 
-    sample_range_lower = np.array([0.1, 0.3, 0.05]) 
-    sample_range_upper = np.array([0.1, 0.3, 0.3])
+    sample_range_lower = np.array([0.15, 0.6, 0.1]) 
+    sample_range_upper = np.array([0.15, 0.6, 0.45])
     lower_bound = base_placement - sample_range_lower
     upper_bound = base_placement + sample_range_upper
     while True:
@@ -51,6 +52,7 @@ def RAND_CONF(robot, cube, viz, G):
         q, successFlag = computeqgrasppose(robot, robot.q0, cube, cube_matrix, viz)
         print("RAND CONF SUCCESS FLAG:", successFlag)
         if successFlag and (distanceToObstacle(robot, q) > OBSTACLE_AVOIDANCE_EPSILON):
+        # if successFlag:
             return q, cube_matrix
     
 
@@ -75,7 +77,7 @@ def NEAREST_VERTEX(G,cube_rand):
 def lerp(q0,q1,t):    
     return q0 * (1 - t) + q1 * t
 
-def NEW_CONF(robot, cube, viz, cube_near,cube_rand,discretisationsteps, delta_q = 0.075):
+def NEW_CONF(robot, cube, viz, cube_near,cube_rand,discretisationsteps, delta_q=0.075):
     '''Return the closest configuration q_new such that the path q_near => q_new is the longest
     along the linear interpolation (q_near,q_rand) that is collision free and of length <  delta_q'''
     cube_end = cube_rand.copy()
@@ -102,10 +104,10 @@ def VALID_EDGE(robot, cube, viz,q_new, q_goal, discretisationsteps):
 
 def computepath(qinit, qgoal, cubeplacementq0, cubeplacementqgoal):
     robot, cube, viz = setupwithmeshcat() # Added this line might change when debug
-    discretisationsteps_newconf = 5 #To tweak later on
-    discretisationsteps_validedge = 5 #To tweak later on
+    discretisationsteps_newconf = 10 #To tweak later on
+    discretisationsteps_validedge = 10 #To tweak later on
     k = 1000  #To tweak later on
-    delta_q = 0.075 #To tweak later on
+    delta_q = 0.05 #To tweak later on
     cube_goal = cubeplacementqgoal.translation
 
     G = [(None, cubeplacementq0.translation)] 
