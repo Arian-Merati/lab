@@ -21,13 +21,13 @@ from config import DT, LEFT_HAND, RIGHT_HAND, LEFT_HOOK, RIGHT_HOOK
 from tools import getcubeplacement, setcubeplacement, collision
     
 # in my solution these gains were good enough for all joints but you might want to tune this.
-Kp = 2000              # proportional gain (P of PD)
+Kp = 4000              # proportional gain (P of PD)
 Kv = 2 * np.sqrt(Kp)     # derivative gain (D of PD)
 Ki = 200                 # integral gain (I of PID)
 # integral_error = None  
 fc = 500               # contact force
 
-OBSTACLE_AVOIDANCE_EPSILON = 0.05  # Distance threshold for obstacle avoidance
+#OBSTACLE_AVOIDANCE_EPSILON = 0.05  # Distance threshold for obstacle avoidance
 
 def getCubePose(sim):
     pos, orn = p.getBasePositionAndOrientation(
