@@ -1,106 +1,48 @@
-# Advanced Robotics (INFR112132022) software labs
+Part 1 – Inverse Geometry (inverse_geometry.py)
 
-These instructions are written for ARO labs regarding set up on DICE environment.
+We implemented a hierarchical null-space inverse kinematics scheme with task prioritization for dual-arm grasping control.
+- Primary task (right end-effector positioning) solved using pseudo-inverse Jacobian, with left end-effector positioned in the null-space of the primary task. This ensures asymmetric poses are resolved with explicit prioritization.
+- Fixed step size (DT = 1e-2) used for configuration integration via pin.integrate(). Convergence achieved within MAX_ITERATIONS=1000 by solving both 6D end-effector errors simultaneously.
+- Joint-limit projection (project to joint limits) applied after every iteration to maintain feasibility. This prevents oscillations near joint boundaries and ensures returned configurations are always within valid limits.
+- Algorithm converges when both end-effector position/orientation errors fall below EPSILON, followed by validation of collision-free status and joint limit satisfaction.
 
-The lab instructions are given in the instructions notebook. 
-This readme provides you with the instructions for installing the lab requirements.
-These instructions are very similar to the [tutorials instructions](https://github.com/ediadvancedrobotics/tutorials).
 
-## Set up 
+Part 2 – Motion Planning (path.py)
 
-### On a DICE machine
-On DICE, we will clone the [lab repository](https://github.com/ediadvancedrobotics/lab) and install the required [dependencies](https://github.com/ediadvancedrobotics/lab/blob/main/requirements.txt). 
-You can "clone" the project to a local folder of your choice.
-Open a terminal (CTRL + ALT + T) and follow the commands below:
+RRT-based motion planning operating in 3D cube configuration space with kinematics-aware validation. Key design decisions:
 
--   Move to home directory.
+- Instead of sampling in the robot's full 14-DOF joint space, we sample directly in 3D cube translation space (keeping orientation fixed). This massively reduces branching factor and makes the search space more interpretable.
+- Every sampled cube placement is validated by solving the grasping IK problem. Only configurations with valid IK solutions (reachable by both arms) are added to the graph. This ensures the planner is kinematics-aware rather than purely geometric.
 
-```bash
-cd ~
-```
+Multi-level validation:
+  - Robot-environment collision detection for each IK solution (via collision() function)
+  - Cube-environment collision detection for sampled placements (via cube_in_collision())
+  - Interpolation checks during path extension: configurations are sampled along segments connecting RRT nodes to verify safety between waypoints
+
+- Sampling region parameters (sample_range_lower/upper) define a bounded region around the cube's target location. IK validation ensures that sampled cube positions lead to valid grasping configurations for both arms.
+
+- Path Extraction: Complete path is reconstructed by backtracking from goal to root through the RRT graph, computing the corresponding joint configurations via inverse kinematics at each cube placement waypoint.
+
+
+ 
+Part 3 – Control and Execution (control.py)
+
+Two-phase control architecture combining trajectory tracking with force-based grasp maintenance.
+
+- Raw RRT waypoints smoothed using cubic Bézier interpolation. Each segment connects two waypoints with control points positioned to ensure zero boundary velocities. Derivatives automatically computed for velocity and acceleration references.
+
+- Core control law uses inverse dynamics (τ = M·a_des + nle) with PD feedback on configuration errors:
+  - a_des = a_traj + Kp·(q_des - q_current) + Kv·(v_des - v_current)
+  - Gains tuned for stable tracking (Kp = 2000, Kv ≈ 90)
+  - Compensates for gravity and Coriolis effects via computed non-linear terms
+
+- Jaconian transpose method maintains grasping contact on the cube:
+  - Spring-damper law: F = fc·(p_desired - p_current) pulls each hand toward hook points on cube
+  - Force gains (fc ≈ 500-1000) are kept high to maintain secure grasp even during dynamic motions
+  - Forces converted to joint torques via Jacobian transpose: τ_force = J^T · F
   
--   Create the aro directory if not already done
+  The cube position is obtained in real-time from PyBullet physics simulation, ensuring the controller responds to actual cube location rather than desired trajectory.
 
-```bash
-mkdir -p aro && cd aro
-```
-
-- Clone the lab inside your home directory.
-
-```bash 
-git clone https://github.com/ediadvancedrobotics/lab/
-```
-
-- Install dependencies
-
-```bash
-python -m pip install -r requirements.txt
-```    
-
-- You need to update `.bashrc` to include meshcat-server in PATH. Follow the steps below:
-    - Open .bashrc for Editing
-        ```bash
-        nano ~/.bashrc
-        ```
-    - Add the Following Line to the end of your .bashrc file
-        ```bash
-        export PATH=$PATH:~/.local/bin
-        ```
-    - Save and close by pressing CTRL + O to save, followed by CTRL + X to exit.
-    - Reload `.bashrc` to apply the changes immediately without restarting the terminal
-        ```bash
-        source ~/.bashrc
-        ```
-
-
-You should be done! See [below](#using-and-updating-the-notebooks) to check that your installation is working 
-
-### Linux, Python 3, PyPI
-
-On a Linux system with Python 3.8, you can get the dependencies directly with +[pip (see installation procedure and update below)](#installing-pip):
-```bash
-python3 -m pip install -r requirements.txt
-```
-NB: you should consider using a [virtualenv](https://docs.python.org/3/library/venv.html)
-
-Once you have the dependencies, you can start the server with `jupyter notebook`
-
-## Using and updating the repository
-### Running the instructions notebook
-On your terminal, cd into the lab folder:
-```bash
-cd  ~/aro/lab/
-```
-Now run Jupyter notebook with the command
-```bash
-jupyter notebook .
-```
-Click on 'instructions.ipynb ' to open the instructions notebook.
-
-
-### Other helpful instructions
-There is a pinocchio cheat sheet available as a pdf. You can also run the notebook "A_pinocchio_cheat_notebook.ipynb" to get a summary of the instructions.
-Pinocchio is a bit dense and has its own singular API, it might take some time for you to become familiar with it, but trust me, this will prove largely beneficial.
-
-### Editing the notebook and updates
-If the repository changes (for example when the second part of the lab will be pushed / a bug has been found), you will need to update your local
-version by "pulling" it from the repository. On a native installation, just go in the folder containing the tutorials and execute ```git pull```
-
-
-## Side notes
-
-### Installing pip
-
-Pip is a tool for installing and managing Python packages. You can install it with
-
-```bash
-sudo apt install python3-pip
-```
-
-The default version of +pip installed by +apt is not up to date, so upgrade it with
-```bash
-python3 -m pip install --upgrade --user
-```
-
-In general, running +pip is likely to run an alias on +pip in /usr, so either run it through python3 as explained above, or make sure your path select the right pip executable in your ~/.local. The option --user is kind of optional for recent +pip version, but removing it should work with a warning.
-
+- Final control torques combine motion tracking and force control:
+  - τ_total = τ_tracking + τ_force_left + τ_force_right
+  - PyBullet physics engine handles contact dynamics automatically—cube movements result from actual robot-cube contact forces
