@@ -37,12 +37,9 @@ Two-phase control architecture combining trajectory tracking with force-based gr
   - Compensates for gravity and Coriolis effects via computed non-linear terms
 
 - Jaconian transpose method maintains grasping contact on the cube:
-  - Spring-damper law: F = fc·(p_desired - p_current) pulls each hand toward hook points on cube
+  - F = fc·(p_desired - p_current) pulls each hand toward hook points on cube
   - Force gains (fc ≈ 500-1000) are kept high to maintain secure grasp even during dynamic motions
   - Forces converted to joint torques via Jacobian transpose: τ_force = J^T · F
-  
-  The cube position is obtained in real-time from PyBullet physics simulation, ensuring the controller responds to actual cube location rather than desired trajectory.
 
 - Final control torques combine motion tracking and force control:
   - τ_total = τ_tracking + τ_force_left + τ_force_right
-  - PyBullet physics engine handles contact dynamics automatically—cube movements result from actual robot-cube contact forces
